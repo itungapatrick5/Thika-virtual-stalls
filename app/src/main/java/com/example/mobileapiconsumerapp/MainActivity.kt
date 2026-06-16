@@ -4,12 +4,14 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.MaterialTheme
@@ -18,7 +20,9 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -62,10 +66,17 @@ object RetrofitInstance {
     }
 }
 
+// State Wrapper
+sealed class UserState {
+    object Loading : UserState()
+    data class Success(val users: List<User>) : UserState()
+    data class Error(val message: String) : UserState()
+}
+
 // 4. ViewModel
 class UserViewModel : ViewModel() {
-    private val _users = MutableStateFlow<List<User>>(emptyList())
-    val users: StateFlow<List<User>> = _users
+    private val _uiState = MutableStateFlow<UserState>(UserState.Loading)
+    val uiState: StateFlow<UserState> = _uiState
 
     init {
         fetchUsers()
@@ -73,11 +84,12 @@ class UserViewModel : ViewModel() {
 
     private fun fetchUsers() {
         viewModelScope.launch {
+            _uiState.value = UserState.Loading
             try {
                 val response = RetrofitInstance.api.getUsers()
-                _users.value = response
+                _uiState.value = UserState.Success(response)
             } catch (e: Exception) {
-                // Handle error
+                _uiState.value = UserState.Error(e.message ?: "An unknown error occurred")
             }
         }
     }
@@ -101,18 +113,34 @@ class MainActivity : ComponentActivity() {
 
 @Composable
 fun UserListScreen(modifier: Modifier = Modifier, viewModel: UserViewModel = viewModel()) {
-    val users by viewModel.users.collectAsState()
+    val state by viewModel.uiState.collectAsState()
 
-    LazyColumn(modifier = modifier.fillMaxSize().padding(16.dp)) {
-        item {
-            Text(
-                text = "Mobile API Consumer",
-                style = MaterialTheme.typography.headlineMedium,
-                modifier = Modifier.padding(bottom = 16.dp)
-            )
-        }
-        items(users) { user ->
-            UserCard(user = user)
+    Box(modifier = modifier.fillMaxSize()) {
+        when (val currentState = state) {
+            is UserState.Loading -> {
+                CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
+            }
+            is UserState.Success -> {
+                LazyColumn(modifier = Modifier.fillMaxSize().padding(16.dp)) {
+                    item {
+                        Text(
+                            text = "Mobile API Consumer",
+                            style = MaterialTheme.typography.headlineMedium,
+                            modifier = Modifier.padding(bottom = 16.dp)
+                        )
+                    }
+                    items(currentState.users) { user ->
+                        UserCard(user = user)
+                    }
+                }
+            }
+            is UserState.Error -> {
+                Text(
+                    text = "Error: ${currentState.message}",
+                    color = Color.Red,
+                    modifier = Modifier.align(Alignment.Center).padding(16.dp)
+                )
+            }
         }
     }
 }
