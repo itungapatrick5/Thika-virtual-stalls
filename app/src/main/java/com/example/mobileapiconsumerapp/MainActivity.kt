@@ -6,16 +6,22 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -86,7 +92,7 @@ class UserViewModel : ViewModel() {
         fetchUsers()
     }
 
-    private fun fetchUsers() {
+    fun fetchUsers() {
         viewModelScope.launch {
             _uiState.value = UserState.Loading
             delay(5000) // Artificial delay for screenshot purposes
@@ -119,6 +125,7 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun UserListScreen(modifier: Modifier = Modifier, viewModel: UserViewModel = viewModel()) {
     val state by viewModel.uiState.collectAsState()
+    val context = LocalContext.current
 
     Box(modifier = modifier.fillMaxSize()) {
         when (val currentState = state) {
@@ -128,11 +135,25 @@ fun UserListScreen(modifier: Modifier = Modifier, viewModel: UserViewModel = vie
             is UserState.Success -> {
                 LazyColumn(modifier = Modifier.fillMaxSize().padding(16.dp)) {
                     item {
-                        Text(
-                            text = "Mobile API Consumer",
-                            style = MaterialTheme.typography.headlineMedium,
-                            modifier = Modifier.padding(bottom = 16.dp)
-                        )
+                        Row(
+                            modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "Mobile API Consumer",
+                                style = MaterialTheme.typography.headlineMedium,
+                                modifier = Modifier.clickable {
+                                    Toast.makeText(context, "You clicked the Header!", Toast.LENGTH_SHORT).show()
+                                }
+                            )
+                            IconButton(onClick = {
+                                Toast.makeText(context, "Refreshing users...", Toast.LENGTH_SHORT).show()
+                                viewModel.fetchUsers()
+                            }) {
+                                Icon(Icons.Default.Refresh, contentDescription = "Refresh")
+                            }
+                        }
                     }
                     items(currentState.users) { user ->
                         UserCard(user = user)
